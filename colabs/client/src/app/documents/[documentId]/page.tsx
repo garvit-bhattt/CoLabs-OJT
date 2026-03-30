@@ -10,7 +10,7 @@ const DocumentIdPage = async ({params}:DocumentIdProps) => {
     <div className='min-h-screen bg-[#FAFBFD]'>
       <Toolbar/>
       
-      <Editor />
+      <Editor documentId={documentId} />
     </div>
   )
 }

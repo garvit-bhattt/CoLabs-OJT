@@ -3,6 +3,11 @@ import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { TaskItem} from '@tiptap/extension-task-item'
 import {TaskList} from  '@tiptap/extension-task-list'
+import Collaboration from "@tiptap/extension-collaboration";
+import CollaborationCursor from "@tiptap/extension-collaboration-cursor";
+import * as Y from "yjs";
+import { SocketIOProvider } from "y-socket.io";
+import { useEffect, useState } from "react";
 import Table from '@tiptap/extension-table'
 import TableCell from '@tiptap/extension-table-cell'
 import TableHeader from '@tiptap/extension-table-header'
@@ -22,8 +27,29 @@ import { FontSizeExtension } from "@/extensions/font-size";
 import { LineHeightExtension } from "@/extensions/line-height";
 import {Ruler} from "./ruler";
 
-export const Editor = () => {
+export const Editor = ({ documentId }: { documentId?: string }) => {
   const {setEditor} =useEditorStore();
+
+  const roomName = documentId || "default-document";
+
+  const [providerState, setProviderState] = useState<{ ydoc: Y.Doc; provider: SocketIOProvider } | null>(null);
+
+  useEffect(() => {
+    const ydoc = new Y.Doc();
+    const serverUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:5000";
+    const provider = new SocketIOProvider(serverUrl, roomName, ydoc, {
+      autoConnect: false,
+    });
+
+    provider.connect();
+    setProviderState({ ydoc, provider });
+
+    return () => {
+      provider.disconnect();
+      ydoc.destroy();
+    };
+  }, [roomName]);
+
   const editor = useEditor({
     immediatelyRender:false, 
     onCreate({editor}){
@@ -57,8 +83,20 @@ export const Editor = () => {
         },
 
     },
-    extensions: [
-      StarterKit,
+    extensions: providerState ? [
+      StarterKit.configure({
+        history: false, // Collaboration comes with its own history
+      }),
+      Collaboration.configure({
+        document: providerState.ydoc,
+      }),
+      CollaborationCursor.configure({
+        provider: providerState.provider,
+        user: {
+          name: "Anonymous User",
+          color: "#" + Math.floor(Math.random() * 16777215).toString(16),
+        },
+      }),
       LineHeightExtension.configure({
         types:["heading","paragraph"]
       }),
@@ -88,26 +126,13 @@ export const Editor = () => {
         nested:true,
       }),
       TaskList
-    ],
-    content: `
-        <table>
-          <tbody>
-            <tr>
-              <th>Name</th>
-              <th colspan="3">Description</th>
-            </tr>
-            <tr>
-              <td>Cyndi Lauper</td>
-              <td>Singer</td>
-              <td>Songwriter</td>
-              <td>Actress</td>
-            </tr>
-          </tbody>
-        </table>
-      `,
-    
-    
+    ] : [],
   });
+
+  if (!providerState) {
+    return null;
+  }
+
   return (
     <div className="size-full overflow-x-auto bg-[#F9FBFD] px-4  print:p-0 print:bg-white print:overflow-visible">
       <Ruler/>

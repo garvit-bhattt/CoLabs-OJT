@@ -6,6 +6,8 @@ import cors from "cors";
 import connectDB from "./config/db.js";
 import session from "express-session";
 import passport from "./config/passport.js";
+import { Server } from "socket.io";
+import { YSocketIO } from "y-socket.io/dist/server";
 
 import healthRoutes from "./routes/health.routes.js";
 import authRoutes from "./routes/auth.routes.js";
@@ -14,6 +16,17 @@ import errorHandler from "./middleware/error.middleware.js";
 
 const app = express();
 const server = http.createServer(app);
+
+const io = new Server(server, {
+  cors: {
+    origin: config.clientUrl,
+    methods: ["GET", "POST"],
+    credentials: true,
+  },
+});
+
+const ySocketIO = new YSocketIO(io);
+ySocketIO.initialize();
 
 app.use(express.json());
 
